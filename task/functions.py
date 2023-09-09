@@ -9,9 +9,8 @@ def prod_non_zero_diag(x):
         return ans
     m = len(x[0])
     for i in range(min(n, m)):
-        if x[i][i] == 0:
-            continue
-        ans *= x[i][i]
+        if x[i][i] != 0:
+            ans *= x[i][i]
     return ans
 
 

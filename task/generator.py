@@ -17,7 +17,7 @@ def generate_array_of_points(n, low=0, high=100):
 
 
 def generate_matrix(n, m, low=0, high=100):
-    x = np.array([[np.random.randint(low, high) for i in range(m)] for j in range(n)])
+    x = [[np.random.rand() for i in range(m)] for j in range(n)]
     return x
 
 
