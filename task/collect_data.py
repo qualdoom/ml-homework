@@ -1,9 +1,9 @@
 import numpy as np
 
-values = np.array([0, 1, 2, 1, 2, 4, 5, 6, 1, 2, 1])
+x = np.array([(1, 2), (0, 1), (2, 4), (3, 7)])
+y = np.array([(2, 4), (3, 8)])
 
-searchval = [1, 2]
+z = np.array([[1, 2], [2, 3], [3, 4]]) # (1, n) * (m, 1) -> (m, n)
 
-x = ((values[:-1]==searchval[0]) & (values[1:]==searchval[1]))
 
-print(x)
+print(np.linalg.norm([(9, 9)]))

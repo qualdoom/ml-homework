@@ -12,14 +12,10 @@ def are_multisets_equal(x, y):
 
 
 def max_after_zero(x):
-    x = np.array(x)
     res = np.argwhere(x == 0) + 1
     res = res[res < len(x)]
     a = np.take(x, res)
-    try:
-        return a.max()
-    except:
-        return 0
+    return a.max()
 
 
 def convert_image(img, coefs):
@@ -27,7 +23,6 @@ def convert_image(img, coefs):
 
 
 def run_length_encoding(x):
-    x = np.array(x)
     a = np.diff(x)
     res = [0]
     res = np.append(res, np.reshape(np.argwhere(a != 0), -1) + 1)
@@ -43,7 +38,4 @@ def run_length_encoding(x):
 
 
 def pairwise_distance(x, y):
-    x = np.array(x)
-    y = np.array(y)
     return np.linalg.norm(x[:, np.newaxis] - y, axis=2)
-
