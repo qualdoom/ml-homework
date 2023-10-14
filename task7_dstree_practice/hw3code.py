@@ -104,6 +104,7 @@ class DecisionTree():
 
                 feature_vector = np.array(list(map(lambda x: categories_map[x], sub_X[:, feature])))
             else:
+                print("LOL")
                 raise ValueError
 
             if np.all(feature_vector[0] == feature_vector):
@@ -127,6 +128,7 @@ class DecisionTree():
                                                   filter(lambda x: x[1] <= threshold, categories_map.items())))
                     else:
                         raise ValueError
+        
         if(len(sub_y[split]) == len(sub_y)):
             node["type"] = "terminal"
             node["class"] = Counter(sub_y).most_common(1)[0][0]
