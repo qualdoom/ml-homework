@@ -14,8 +14,7 @@ def get_img_as_tensor(state):
     tensor = transform(state)
     return tensor
 
-class Agent:
-    
+class Agent:    
     saving_path = "models.txt"
     learning_rate = 5e-3
     epsilon = 0.2

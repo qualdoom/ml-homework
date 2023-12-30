@@ -7,7 +7,7 @@ def visualize(agent, t_max=10000):
     env_show = gym.make("ALE/Assault-v5", render_mode="human").env
     n_actions = env_show.action_space.n
     
-    state = env_show.reset()[0]
+    state = env_show.reset()
 
     for t in range(t_max):
         env_show.render()
@@ -18,9 +18,7 @@ def visualize(agent, t_max=10000):
         action = agent.get_action(state, epsilon=0.1)
         print(action)
         
-        new_state, reward, done, truncated, _ = env_show.step(action)
-
-        done = done or truncated
+        new_state, reward, done, _ = env_show.step(action)
 
         state = new_state
         if done: 
