@@ -9,9 +9,16 @@ from torchrl.data.replay_buffers.samplers import PrioritizedSampler
 
 
 class Agent:
+
+    def update_target_network(self, beta=0.99):
+        for target_param, param in zip(self.target_network.parameters(), self.model.parameters()):
+            target_param.data.copy_(beta * param.data + target_param.data*(1.0 - beta))
+
     def __init__(self, num_channels, width, height, n_actions):
         self.device = ("cuda" if torch.cuda.is_available() else "cpu")
         self.model = build_model(num_channels, width, height, n_actions).to(self.device)
+        self.cnt = 0
+        self.target_network = build_model(num_channels, width, height, n_actions).to(self.device)
         self.optimizer = torch.optim.Adam(self.model.parameters(), lr = LEARNING_RATE)
         self.rb = TensorDictReplayBuffer(storage=ListStorage(SIZE), sampler=PrioritizedSampler(SIZE, alpha=0.6, beta=0.8), priority_key="td_error")
         self.n_actions = n_actions
@@ -29,7 +36,7 @@ class Agent:
         action = torch.max(action, 0)[1]
         predict_qvalue = (self.model(state).to(self.device))[0][action].detach()
 
-        predict_next_qvalue = (self.model(next_state).detach().to(self.device))
+        predict_next_qvalue = (self.target_network(next_state).detach().to(self.device))
 
         next_state_value = torch.max(predict_next_qvalue, 1)[0].to(self.device)
 
@@ -51,7 +58,7 @@ class Agent:
           range(states.shape[0]), actions
         ].to(self.device)
 
-        predicted_next_qvalues = self.model(next_states).detach().to(self.device)
+        predicted_next_qvalues = self.target_network(next_states).detach().to(self.device)
 
         next_state_values = torch.max(predicted_next_qvalues, 1)[0].to(self.device)
 
@@ -68,6 +75,10 @@ class Agent:
       
     
     def record_experience(self, state): # state is a tensor
+        if self.cnt == 100:
+            self.update_target_network()
+            self.cnt = 0
+
         state['td_error'] = torch.as_tensor(self.calculate_td_error(state['pixels_trsf'], state['action'], state['next']['reward'], state['next']['pixels_trsf'], state['next']['done'])) + 1e-6
 
         state['pixels_trsf'] = state['pixels_trsf'].unsqueeze(0)
@@ -77,6 +88,8 @@ class Agent:
         state.batch_size = [1]
 
         self.rb.extend(state)
+
+        self.cnt += 1
 
 
     def train(self, batch_size=1000):
@@ -97,6 +110,8 @@ class Agent:
         self.optimizer.step()
 
         self.rb.update_tensordict_priority(batch)
+
+        self.update_target_network()
 
         return value.cpu().numpy().mean()
         
