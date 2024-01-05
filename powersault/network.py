@@ -50,7 +50,7 @@ class NeuralNetwork(nn.Module):
         # x = self.fc4(x)
 
         x = F.relu(self.FC1(x))
-        x = F.relu(self.FC2(x))
+        x = self.FC2(x)
         
         return x
     
