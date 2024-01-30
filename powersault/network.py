@@ -14,13 +14,9 @@ class NeuralNetwork(nn.Module):
 
         self.fc_size = self.compute_fc_size(num_channels, height, width)
 
-        self.fc1 = nn.Linear(self.fc_size, 256)
-        self.fc2 = nn.Linear(256, 256)
-        self.fc3 = nn.Linear(256, 32)
-        self.fc4 = nn.Linear(32, n_actions)
-
-        self.FC1 = nn.Linear(self.fc_size, 512)
-        self.FC2 = nn.Linear(512, n_actions)
+        self.fc1 = nn.Linear(self.fc_size, 512)
+        self.fc2 = nn.Linear(512, 128)
+        self.fc3 = nn.Linear(128, n_actions)
         
     def compute_fc_size(self, num_channels, height, width):
         # Применение сверточных и пулинг слоев для вычисления размера входа
@@ -31,31 +27,19 @@ class NeuralNetwork(nn.Module):
 
         # Вычисление размера входа для полносвязанного слоя
         fc_size = x.view(1, -1).size(1)
-        print(fc_size)
+        print("Size of layer after convolution layers", fc_size)
         return fc_size
-    
     
     def forward(self, x):
 
-        x = self.pool(self.conv1(x)) # F.RELU???
+        x = self.pool(self.conv1(x))
         x = self.pool(self.conv2(x))
         x = self.pool(self.conv3(x))
 
         x = x.view(-1, self.fc_size)
-        # print(x)
 
-        # x = F.relu(self.fc1(x))
-        # x = F.relu(self.fc2(x))
-        # x = F.relu(self.fc3(x))
-        # x = self.fc4(x)
+        x = F.relu(self.fc1(x))
+        x = F.relu(self.fc2(x))
+        x = self.fc3(x)
 
-        x = F.relu(self.FC1(x))
-        x = self.FC2(x)
-        
         return x
-    
-
-def build_model(num_channels, height, width, n_actions):
-      model = NeuralNetwork(num_channels=num_channels, height=height, width=width, n_actions=n_actions)
-      # self.buffer = PrioritizedReplayBuffer(50000)
-      return model
