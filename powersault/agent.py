@@ -29,6 +29,7 @@ class Agent:
         self.t_max = 10000
         self.reward_history = []
         self.epsilon = 0.7
+        self.count_for_learning = 0
 
     def select_action(self, state, epsilon=0):
         # assume that state is pixels
@@ -75,9 +76,10 @@ class Agent:
             is_done, rewards, target_q_values_for_actions).to(self.device)
 
         priority = (abs(predicted_q_values_for_actions - target_q_values_for_actions.detach())).detach().to(self.device)
-
-        loss = ((predicted_q_values_for_actions - target_q_values_for_actions.detach()) ** 2).to(self.device)
-
+        
+        loss_function = torch.nn.HuberLoss(delta=1.0)
+        loss = loss_function(predicted_q_values_for_actions, target_q_values_for_actions).to(self.device)
+        
         return loss, priority
 
     def record_experience(self, state):  # state is a tensor
@@ -92,6 +94,10 @@ class Agent:
         state['pixels_trsf'] = state['pixels_trsf'].unsqueeze(0)
         state['next'] = state['next'].unsqueeze(0)
         state['action'] = state['action'].unsqueeze(0)
+        
+        if self.count_for_learning == FRAMES_FOR_UPDATE_NETWORK:
+            self.train(16)
+            self.count_for_learning = 0
 
         state.batch_size = [1]
 
@@ -108,19 +114,17 @@ class Agent:
                                                              batch['next']['reward'], batch['next']['pixels_trsf'],
                                                              batch['next']['done'])
 
-        value = (element_wise_loss * batch['_weight'] * batch['_weight']).detach()
+        value = (element_wise_loss * batch['_weight']).detach()
 
         batch['td_error'] = priority + 1e-6
 
-        loss = torch.mean(element_wise_loss * batch['_weight'] * batch['_weight'])
+        loss = torch.mean(element_wise_loss * batch['_weight'])
 
         loss.backward()
 
         self.optimizer.step()
 
         self.rb.update_tensordict_priority(batch)
-
-        self.update_target_network()
 
         return value.cpu().numpy().mean()
 
