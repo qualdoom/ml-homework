@@ -60,8 +60,10 @@ class Agent:
         self.count_for_learning = 0
 
     def select_action(self, state, epsilon=0):
+        state = torch.as_tensor([state])
         if np.random.rand() < epsilon:
             return np.random.choice(np.arange(self.n_actions))
+        print(self.policy_network(state).detach())
         value, index = torch.max(self.policy_network(state).detach(), 1)
         return index.item()
 
