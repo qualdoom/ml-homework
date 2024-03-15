@@ -5,7 +5,8 @@ from constants import *
 from torchrl.envs import *
 from torchrl.envs.libs.gym import *
 from torchrl.data import *
-from torchrl.data.replay_buffers.samplers import PrioritizedSampler
+from torchrl.data import ReplayBuffer, ListStorage, LazyTensorStorage
+import logging  
 
 
 class Agent:
@@ -15,6 +16,8 @@ class Agent:
         self.width = width
         self.height = height
         self.n_actions = n_actions
+        self.logger = logging.getLogger()
+        self.logger.setLevel(logging.DEBUG)
         self.initialize_components()
 
     def set_device(self):
@@ -42,9 +45,7 @@ class Agent:
         self.optimizer = torch.optim.Adam(self.policy_network.parameters(), lr=LEARNING_RATE)
 
     def setup_replay_buffer(self):
-        self.replay_buffer = TensorDictReplayBuffer(storage=ListStorage(SIZE),
-                                                    sampler=PrioritizedSampler(SIZE, alpha=0.6, beta=0.8),
-                                                    priority_key="td_error")
+        self.replay_buffer = ReplayBuffer(storage=LazyTensorStorage(SIZE))
 
     def setup_agent_properties(self):
         self.frames = []
@@ -74,16 +75,16 @@ class Agent:
 
     def compute_loss(self, states, actions, rewards, next_states, dones, gamma=GAMMA):
         states, actions, rewards, next_states, dones = self.convert_to_tensors(states, actions, rewards, next_states, dones)
-        current_q_values = self.policy_network(states).gather(1, actions.unsqueeze(-1)).squeeze(-1)
+        current_q_values = self.policy_network(states).gather(1, actions).squeeze(-1)
         next_q_values = self.target_network(next_states).max(1)[0]
         expected_q_values = rewards + gamma * next_q_values * (1 - dones)
-        loss = torch.nn.functional.smooth_l1_loss(current_q_values, expected_q_values)
+        loss = torch.mean((current_q_values - expected_q_values.detach()) ** 2)
+        print("loss is", loss.item())
         return loss
-
+    
     def convert_to_tensors(self, states, actions, rewards, next_states, dones):
-        print(states, actions, rewards, next_states, dones)
         states = torch.tensor(states, dtype=torch.float32).to(self.device)
-        actions = torch.tensor(actions, dtype=torch.long).to(self.device)
+        actions = torch.tensor(actions, dtype=torch.long).to(self.device)  # Convert to long (int) type
         rewards = torch.tensor(rewards, dtype=torch.float32).to(self.device)
         next_states = torch.tensor(next_states, dtype=torch.float32).to(self.device)
         dones = torch.tensor(dones, dtype=torch.float32).to(self.device)
@@ -95,25 +96,26 @@ class Agent:
             self.sync_networks()
             self.reset_counters()
 
-        td_error = self.calculate_td_error(**state) + 1e-6
-        state['td_error'] = td_error
-        self.replay_buffer.extend(state)
+        self.replay_buffer.add(state)
 
     def train(self, batch_size=1000):
         batch = self.replay_buffer.sample(batch_size)
-        loss = self.compute_loss(**batch)
+        loss = self.compute_loss(batch['state'], batch['action'], batch['reward'], batch['next_state'], batch['done'])
+        print("loss is", loss.item())
         self.perform_backpropagation(loss)
-        self.update_priorities(batch)
         return loss.item()
 
     def perform_backpropagation(self, loss):
         self.optimizer.zero_grad()
+        print("loss is", loss.item())
+        print(loss)
         loss.backward()
+        print("loss is", loss.item())
+        print(loss)
+        print(loss.grad)
         self.optimizer.step()
-
-    def update_priorities(self, batch):
-        priorities = batch['td_error'] + 1e-6
-        self.replay_buffer.update_tensordict_priority(batch, priorities)
+        print("loss is", loss.item())
+        print(loss)
 
     def load(self, filepath='model.pth'):
         checkpoint = torch.load(filepath, map_location=self.device)
@@ -121,9 +123,9 @@ class Agent:
         self.load_agent_state(checkpoint)
 
     def load_networks_and_optimizer(self, checkpoint):
-        self.policy_network.load_state_dict(checkpoint['policy_network'])
-        self.target_network.load_state_dict(checkpoint['target_network'])
-        self.optimizer.load_state_dict(checkpoint['optimizer'])
+        self.policy_network.load_state_dict(checkpoint.get('policy_network', self.create_network().state_dict()))
+        self.target_network.load_state_dict(checkpoint.get('target_network', self.create_network().state_dict()))
+        self.optimizer.load_state_dict(checkpoint.get('optimizer',torch.optim.Adam(self.policy_network.parameters(), lr=LEARNING_RATE)))
 
     def load_agent_state(self, checkpoint):
         self.count_until_change_target_network = checkpoint.get('count_until_change_target_network', 0)
